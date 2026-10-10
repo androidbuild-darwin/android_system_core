@@ -165,6 +165,13 @@ cc_library {
     ],
 
     target: {
+        darwin: {
+            srcs: [
+                "canned_fs_config.cpp",
+                "fs_config.cpp",
+            ],
+            include_dirs: ["external/libcap/libcap/include/uapi"],
+        },
         linux_bionic: {
             enabled: true,
             static_libs: [
