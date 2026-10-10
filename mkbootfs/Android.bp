@@ -13,6 +13,11 @@ cc_binary_host {
         "libcutils",
         "liblog",
     ],
+    target: {
+        darwin: {
+            include_dirs: ["external/libcap/libcap/include/uapi"],
+        },
+    },
     dist: {
         targets: ["dist_files"],
     },

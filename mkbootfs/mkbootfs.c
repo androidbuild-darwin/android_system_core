@@ -5,16 +5,19 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined(__linux__)
+#include <sys/sysmacros.h>
 #include <linux/kdev_t.h>
+#endif
 
 #include <private/android_filesystem_config.h>
 #include <private/fs_config.h>
@@ -215,10 +218,10 @@ static void _archive(char *in, char *out, int ilen, int olen)
         if(fd < 0) err(1, "cannot open '%s' for read", in);
 
         char* tmp = (char*) malloc(s.st_size);
-        if(tmp == 0) errx(1, "cannot allocate %zd bytes", s.st_size);
+        if(tmp == 0) errx(1, "cannot allocate %" PRIdMAX " bytes", (intmax_t)s.st_size);
 
         if(read(fd, tmp, s.st_size) != s.st_size) {
-            err(1, "cannot read %zd bytes", s.st_size);
+            err(1, "cannot read %" PRIdMAX " bytes", (intmax_t)s.st_size);
         }
 
         _eject(&s, out, olen, tmp, s.st_size);
@@ -307,11 +310,12 @@ static void devnodes_desc_error(const char* filename, unsigned long line_num,
 
 static int append_devnodes_desc_dir(char* path, char* args)
 {
-    struct stat s;
+    struct stat s = {0};
+    unsigned mode;
 
-    if (sscanf(args, "%o %d %d", &s.st_mode, &s.st_uid, &s.st_gid) != 3) return -1;
+    if (sscanf(args, "%o %u %u", &mode, &s.st_uid, &s.st_gid) != 3) return -1;
 
-    s.st_mode |= S_IFDIR;
+    s.st_mode = mode | S_IFDIR;
 
     _eject(&s, path, strlen(path), NULL, 0);
 
@@ -321,13 +325,19 @@ static int append_devnodes_desc_dir(char* path, char* args)
 static int append_devnodes_desc_nod(char* path, char* args)
 {
     int minor, major;
-    struct stat s;
+    unsigned mode;
+    struct stat s = {0};
     char dev;
 
-    if (sscanf(args, "%o %d %d %c %d %d", &s.st_mode, &s.st_uid, &s.st_gid,
+    if (sscanf(args, "%o %u %u %c %d %d", &mode, &s.st_uid, &s.st_gid,
                &dev, &major, &minor) != 6) return -1;
 
+    s.st_mode = mode;
+#if defined(__APPLE__)
+    s.st_rdev = makedev(major, minor);
+#else
     s.st_rdev = MKDEV(major, minor);
+#endif
     switch (dev) {
     case 'b':
         s.st_mode |= S_IFBLK;
